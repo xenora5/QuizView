@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>E2E Quiz Flow Test</title>
+</head>
+<body>
+    <iframe id="appFrame" src="index.html" width="1000" height="800"></iframe>
+    <div id="testOutput">Running E2E tests...</div>
+
+    <script>
+        const frame = document.getElementById('appFrame');
+        const logs = [];
+        let passed = 0;
+        let failed = 0;
+
+        function assert(cond, msg) {
+            if (cond) {
+                logs.push(`PASS: ${msg}`);
+                passed++;
+            } else {
+                logs.push(`FAIL: ${msg}`);
+                failed++;
+                console.error(`FAIL: ${msg}`);
+            }
+        }
+
+        frame.onload = function() {
+            setTimeout(() => {
+                try {
+                    const doc = frame.contentDocument || frame.contentWindow.document;
+
+                    // 1. Verify Welcome Screen is active
+                    const uploadView = doc.getElementById('uploadView');
+                    assert(uploadView.classList.contains('active'), "Upload view is active on load");
+
+                    // 2. Click "Try Sample Quiz"
+                    const sampleBtn = doc.getElementById('sampleQuizBtn');
+                    assert(sampleBtn !== null, "Sample Quiz button exists");
+                    sampleBtn.click();
+
+                    // 3. Verify Quiz View is now active
+                    const quizView = doc.getElementById('quizView');
+                    assert(quizView.classList.contains('active'), "Quiz view is activated after clicking Sample Quiz");
+
+                    // 4. Verify Progress Counter shows "Question 1 of 5"
+                    const counter = doc.getElementById('progressCounter');
+                    assert(counter.textContent.trim() === "Question 1 of 5", "Counter reads 'Question 1 of 5'");
+
+                    // 5. Check options rendered (4 options for Q1)
+                    const optionBtns = doc.querySelectorAll('#optionsContainer .option-btn');
+                    assert(optionBtns.length === 4, "4 options rendered for Question 1");
+
+                    // Q1: Option B is correct. Let's click Option A (Wrong)
+                    const wrongBtnA = doc.querySelector('#optionsContainer .option-btn[data-key="A"]');
+                    assert(wrongBtnA !== null, "Option A button exists");
+                    wrongBtnA.click();
+
+                    // Check wrong-temp class applied to Option A
+                    assert(wrongBtnA.classList.contains('wrong-temp'), "Option A got 'wrong-temp' class (turns red temporarily)");
+
+                    // Verify explanation is NOT yet visible
+                    const expBox = doc.getElementById('explanationBox');
+                    assert(!expBox.classList.contains('visible'), "Explanation box is not visible after wrong answer");
+
+                    // Test: Selecting another option removes previous red state!
+                    // Let's click Option C (another wrong option)
+                    const wrongBtnC = doc.querySelector('#optionsContainer .option-btn[data-key="C"]');
+                    assert(wrongBtnC !== null, "Option C button exists");
+                    wrongBtnC.click();
+
+                    assert(!wrongBtnA.classList.contains('wrong-temp'), "Option A red state was immediately removed when Option C was clicked");
+                    assert(wrongBtnC.classList.contains('wrong-temp'), "Option C now got 'wrong-temp' class (turns red temporarily)");
+
+                    // 6. Click Option B (Correct)
+                    const correctBtn = doc.querySelector('#optionsContainer .option-btn[data-key="B"]');
+                    assert(correctBtn !== null, "Option B button exists");
+                    correctBtn.click();
+
+                    // Verify Option C red state removed
+                    assert(!wrongBtnC.classList.contains('wrong-temp'), "Option C red state was removed when Option B was clicked");
+
+                    // Verify Option B turns green (.correct class)
+                    assert(correctBtn.classList.contains('correct'), "Option B got 'correct' class (turns green)");
+
+                    // Verify other options are dimmed and locked
+                    assert(wrongBtnA.classList.contains('option-dimmed'), "Non-correct option A got 'option-dimmed' class");
+                    assert(wrongBtnC.classList.contains('option-dimmed'), "Non-correct option C got 'option-dimmed' class");
+
+                    // Verify Explanation is now visible
+                    assert(expBox.classList.contains('visible'), "Explanation box is now visible after correct choice");
+                    const expText = doc.getElementById('explanationContent').textContent;
+                    assert(expText.includes("border-box"), "Explanation text contains relevant details");
+
+                    // 7. Verify Next Question button has pulse and works
+                    const nextBtn = doc.getElementById('nextQuestionBtn');
+                    assert(nextBtn.classList.contains('next-btn-pulse'), "Next Question button has pulse class");
+                    nextBtn.click();
+
+                    // Verify Question 2 is now active, explanation hidden
+                    assert(counter.textContent.trim() === "Question 2 of 5", "Counter updated to 'Question 2 of 5'");
+                    assert(!expBox.classList.contains('visible'), "Explanation box is reset/hidden for Question 2");
+                    const q2Btns = doc.querySelectorAll('#optionsContainer .option-btn');
+                    assert(!q2Btns[0].classList.contains('wrong-temp') && !q2Btns[0].classList.contains('correct'), "Question 2 options are fresh without red or green");
+
+                    document.getElementById('testOutput').innerHTML = `
+                        <h2>E2E Test Results: ${passed} Passed, ${failed} Failed</h2>
+                        <pre>${logs.join('\n')}</pre>
+                    `;
+                } catch(e) {
+                    document.getElementById('testOutput').innerHTML = `<h2>Error: ${e.message}</h2>`;
+                }
+            }, 600);
+        };
+    </script>
+</body>
+</html>

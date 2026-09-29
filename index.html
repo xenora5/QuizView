@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizView — PDF Multiple-Choice Quiz Interface</title>
+    <meta name="description" content="Upload any PDF containing multiple-choice questions and practice them in a clean, modern dark quiz interface.">
+    <meta name="theme-color" content="#090d16">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Font Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- PDF.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+
+    <!-- ==========================================================================
+         App Header
+         ========================================================================== -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="logo-area" id="logoBtn" title="Go to Upload Screen">
+                <div class="logo-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                        <polyline points="9 11 11 13 15 9"></polyline>
+                    </svg>
+                </div>
+                <div class="logo-text">QuizView</div>
+                <span class="badge-tag">Dark Mode</span>
+            </div>
+
+            <div class="header-actions">
+                <button class="btn btn-secondary btn-sm" id="headerEditorBtn" style="display:none;" title="Review & Edit Extracted Questions">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    <span class="btn-label-desktop">Edit Questions</span>
+                </button>
+                <button class="btn btn-primary btn-sm" id="headerUploadBtn" title="Upload a different PDF">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span class="btn-label-desktop">Upload PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ==========================================================================
+         Main App Container
+         ========================================================================== -->
+    <main class="main-content">
+
+        <!-- ==================================================================
+             VIEW 1: Upload Screen
+             ================================================================== -->
+        <section id="uploadView" class="view-section active">
+            <div class="welcome-hero">
+                <h1>Turn Any PDF into an Interactive Quiz</h1>
+                <p>Upload exam papers, test banks, or lecture slides. QuizView extracts multiple-choice questions and builds an interactive practice session in real time.</p>
+            </div>
+
+            <div class="upload-card">
+                <div class="dropzone" id="dropzone">
+                    <div class="drop-icon-wrap">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="12" y1="18" x2="12" y2="12"></line>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
+                        </svg>
+                    </div>
+                    <div class="drop-text">
+                        <h3>Drag & drop your PDF file here</h3>
+                        <p>Supports .pdf files with selectable text and standard MCQ formats</p>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="browseBtn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        Browse PDF File
+                    </button>
+                    <input type="file" id="pdfFileInput" class="file-input" accept=".pdf,application/pdf">
+                </div>
+
+                <!-- Extraction Loading Spinner -->
+                <div class="loading-box" id="loadingBox">
+                    <div class="spinner"></div>
+                    <div class="loading-text" id="loadingText">Processing PDF...</div>
+                </div>
+
+                <!-- Quick Test Actions -->
+                <div class="quick-actions">
+                    <span class="quick-actions-label">No PDF handy? Test right away:</span>
+                    <button class="btn btn-secondary btn-sm" id="sampleQuizBtn">
+                        <span>⚡ Try Sample Quiz</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="downloadSamplePdfBtn" title="Download a generated sample PDF to test real file uploading">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <span>Download Demo PDF</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Features Highlights -->
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">🧠</div>
+                    <h4>Smart Extraction</h4>
+                    <p>Parses question numbering, options (A-D), inline answers, and end-of-file answer keys automatically.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🔄</div>
+                    <h4>Repeatable Guessing</h4>
+                    <p>Wrong choices flash red temporarily so you can re-attempt freely without getting locked out.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">💡</div>
+                    <h4>Instant Explanations</h4>
+                    <p>Picking the correct choice turns green and immediately reveals a concise 1–2 line explanation.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🚀</div>
+                    <h4>100% Client-Side</h4>
+                    <p>No backend or server uploads required. Fast, private, responsive, and ready for GitHub Pages.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 2: Interactive Dark Quiz Interface
+             ================================================================== -->
+        <section id="quizView" class="view-section">
+            <!-- Top Quiz Bar -->
+            <div class="quiz-top-bar">
+                <div class="quiz-meta-info">
+                    <span class="counter-badge" id="progressCounter">Question 1 of 10</span>
+                    <span class="score-badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span id="scoreBadgeText">0 / 10 Solved</span>
+                    </span>
+                </div>
+                <div style="font-size:0.8rem; color:var(--text-muted);" class="keyboard-hints">
+                    Keys: <kbd style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px;">1-4</kbd> / <kbd style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px;">A-D</kbd> &nbsp;|&nbsp; <kbd style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px;">→</kbd> Next
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+
+            <!-- Question Jump Strip -->
+            <div class="question-nav-strip" id="questionNavStrip" aria-label="Question Navigation">
+                <!-- Dynamically populated question pills -->
+            </div>
+
+            <!-- Main Quiz Card -->
+            <div class="quiz-card">
+                <div class="question-header">
+                    <h2 class="question-text" id="questionText">Loading question prompt...</h2>
+                </div>
+
+                <!-- Multiple Choice Options -->
+                <div class="options-list" id="optionsContainer">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- 1-2 Line Explanation Box -->
+                <div class="explanation-box" id="explanationBox">
+                    <div class="explanation-header">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <span>Explanation</span>
+                    </div>
+                    <p class="explanation-text" id="explanationContent">
+                        Explanation details will appear here.
+                    </p>
+                </div>
+
+                <!-- Controls -->
+                <div class="quiz-controls">
+                    <button class="btn btn-secondary" id="prevQuestionBtn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7"/>
+                        </svg>
+                        <span>Previous</span>
+                    </button>
+
+                    <button class="btn btn-primary" id="nextQuestionBtn">
+                        <span>Next Question</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 3: Results & Summary
+             ================================================================== -->
+        <section id="resultsView" class="view-section">
+            <div class="results-card">
+                <!-- Circular SVG Progress Score -->
+                <div class="score-circle-wrap">
+                    <svg class="score-circle-svg" viewBox="0 0 120 120">
+                        <defs>
+                            <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#6366f1" />
+                                <stop offset="100%" stop-color="#10b981" />
+                            </linearGradient>
+                        </defs>
+                        <circle class="score-circle-bg" cx="60" cy="60" r="54"></circle>
+                        <circle class="score-circle-progress" id="scoreCircleProgress" cx="60" cy="60" r="54"></circle>
+                    </svg>
+                    <div class="score-circle-text">
+                        <span class="score-percent" id="scorePercent">0%</span>
+                        <span class="score-label">Score</span>
+                    </div>
+                </div>
+
+                <h2 style="font-size:1.75rem; margin-bottom:0.5rem; color:var(--text-bright);">Quiz Completed!</h2>
+                <p style="color:var(--text-secondary); max-width:480px; margin:0 auto;">
+                    Great job practicing! Review your detailed question breakdown and retry any missed questions below.
+                </p>
+
+                <!-- Statistics Grid -->
+                <div class="results-stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="statTotalQ">0</div>
+                        <div class="stat-desc">Total Questions</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statCorrect">0</div>
+                        <div class="stat-desc">Questions Solved</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statAccuracy">0%</div>
+                        <div class="stat-desc">First-Try Accuracy</div>
+                    </div>
+                </div>
+
+                <!-- Results Action Buttons -->
+                <div class="results-actions">
+                    <button class="btn btn-secondary" id="restartQuizBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                        <span>Restart Full Quiz</span>
+                    </button>
+                    <button class="btn btn-primary" id="retryMissedBtn">
+                        <span>Retry Missed Questions</span>
+                    </button>
+                    <button class="btn btn-ghost" id="resultsUploadBtn">
+                        <span>Upload Another PDF</span>
+                    </button>
+                </div>
+
+                <!-- Review Section -->
+                <div class="review-section">
+                    <h3>Question Review & Solutions</h3>
+                    <div class="review-list" id="reviewList">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==========================================================================
+         Modal: Review & Edit Questions
+         ========================================================================== -->
+    <div class="modal-overlay" id="editorModal" aria-modal="true" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title">Review & Edit Questions</div>
+                <button class="btn btn-ghost btn-sm" id="closeEditorBtn" style="font-size:1.1rem; line-height:1;">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem;">
+                    Verify extracted questions, change the correct answer radio button, or adjust the 1–2 line explanation.
+                </p>
+                <div id="editorContainer">
+                    <!-- Populated dynamically -->
+                </div>
+                <button class="btn btn-secondary btn-sm" id="addQuestionBtn" style="align-self:flex-start; margin-top:0.5rem;">
+                    + Add New Question
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('editorModal').classList.remove('active')">Cancel</button>
+                <button class="btn btn-primary" id="saveEditorBtn">Save & Apply to Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span id="toastText">Notification</span>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="sample-data.js"></script>
+    <script src="parser.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

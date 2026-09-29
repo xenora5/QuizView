@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Parser Unit Tests</title>
+    <script src="parser.js"></script>
+    <script src="sample-data.js"></script>
+</head>
+<body>
+    <div id="results">Running tests...</div>
+    <script>
+        const parser = new MCQParser();
+        const logs = [];
+        let passed = 0;
+        let failed = 0;
+
+        function assert(condition, message) {
+            if (condition) {
+                logs.push(`PASS: ${message}`);
+                passed++;
+            } else {
+                logs.push(`FAIL: ${message}`);
+                failed++;
+                console.error(`FAIL: ${message}`);
+            }
+        }
+
+        // Test 1: Standard inline answer and explanation
+        const sample1 = `
+        1. What is the capital of France?
+        A) London
+        B) Berlin
+        C) Paris
+        D) Madrid
+        Answer: C
+        Explanation: Paris is the capital and largest city of France.
+        `;
+        const res1 = parser.parse(sample1);
+        assert(res1.length === 1, "Sample 1 extracted 1 question");
+        assert(res1[0].correctAnswer === "C", "Sample 1 correct answer is C");
+        assert(res1[0].options.length === 4, "Sample 1 has 4 options");
+        assert(res1[0].explanation.includes("capital and largest city"), "Sample 1 extracted explanation");
+
+        // Test 2: Inline options on single line
+        const sample2 = `
+        Q2. Which element has the chemical symbol 'O'?
+        A) Gold   B) Oxygen   C) Osmium   D) Silver
+        Ans: B
+        `;
+        const res2 = parser.parse(sample2);
+        assert(res2.length === 1, "Sample 2 extracted 1 question with inline options");
+        assert(res2[0].options.length === 4, "Sample 2 has 4 options parsed from inline line");
+        assert(res2[0].correctAnswer === "B", "Sample 2 correct answer is B");
+        assert(res2[0].options.find(o => o.key === 'B').text === "Oxygen", "Sample 2 option B text is Oxygen");
+
+        // Test 3: Asterisk on correct option
+        const sample3 = `
+        3. Which protocol is secure?
+        A) HTTP
+        *B) HTTPS
+        C) FTP
+        D) Telnet
+        `;
+        const res3 = parser.parse(sample3);
+        assert(res3.length === 1, "Sample 3 extracted 1 question");
+        assert(res3[0].correctAnswer === "B", "Sample 3 detected asterisk as correct answer B");
+
+        // Test 4: End-of-document Answer Key
+        const sample4 = `
+        1. First question prompt?
+        (A) Red
+        (B) Blue
+        (C) Green
+        (D) Yellow
+
+        2. Second question prompt?
+        (A) Triangle
+        (B) Square
+        (C) Circle
+        (D) Pentagon
+
+        ANSWER KEY:
+        1: B
+        2: D
+        `;
+        const res4 = parser.parse(sample4);
+        assert(res4.length === 2, "Sample 4 extracted 2 questions");
+        assert(res4[0].correctAnswer === "B", "Sample 4 Q1 matched answer B from Answer Key section");
+        assert(res4[1].correctAnswer === "D", "Sample 4 Q2 matched answer D from Answer Key section");
+
+        // Test 5: Fallback explanation generated if none provided
+        assert(res4[0].explanation.length > 5, "Sample 4 Q1 has fallback explanation");
+
+        document.getElementById('results').innerHTML = `
+            <h2>Tests Complete: ${passed} Passed, ${failed} Failed</h2>
+            <pre>${logs.join('\n')}</pre>
+        `;
+    </script>
+</body>
+</html>
