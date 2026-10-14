@@ -548,6 +548,108 @@ body {
     letter-spacing: -0.01em;
 }
 
+/* Dedicated Code Snippet Segment */
+.question-code-card {
+    background: #080d1a;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-left: 3px solid #6366f1;
+    border-radius: var(--radius-md);
+    margin: 1.15rem 0 0.85rem;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+.code-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.85rem;
+    background: rgba(255, 255, 255, 0.035);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.code-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #818cf8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.copy-code-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.copy-code-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-color: var(--border-hover);
+}
+
+.code-viewport {
+    margin: 0;
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Source Code Pro', 'Fira Code', Menlo, Consolas, Monaco, monospace;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: #e2e8f0;
+    tab-size: 4;
+    white-space: pre;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.4) transparent;
+}
+
+.question-subprompt {
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text-bright);
+    margin-top: 0.85rem;
+}
+
+/* Review Code Block on Results Screen */
+.review-code-block {
+    background: #080d1a;
+    border: 1px solid var(--border-subtle);
+    border-left: 3px solid #6366f1;
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.85rem;
+    margin: 0.6rem 0;
+    overflow-x: auto;
+}
+
+.review-code-block pre {
+    margin: 0;
+    font-family: 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: #cbd5e1;
+    white-space: pre-wrap;
+}
+
+.review-q-subprompt {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-top: 0.4rem;
+}
+
 /* Options Container */
 .options-list {
     display: flex;

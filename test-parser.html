@@ -91,6 +91,39 @@
         // Test 5: Fallback explanation generated if none provided
         assert(res4[0].explanation.length > 5, "Sample 4 Q1 has fallback explanation");
 
+        // Test 6: Multi-line coding question (User's exact example)
+        const sample6 = `
+        1. What is the output of following code?
+        int i = 0;
+        for(int i = 0; i < n; i++){
+            cout<<arr[i];
+        }
+        A) 0 1 2
+        B) 0
+        C) Compilation Error
+        D) Infinite loop
+        Answer: A
+        Explanation: Variable shadowing occurs within loop scope.
+        `;
+        const res6 = parser.parse(sample6);
+        assert(res6.length === 1, "Sample 6 parsed 1 coding question");
+        assert(res6[0].prompt.includes("What is the output of following code"), "Sample 6 prompt extracted cleanly");
+        assert(res6[0].code !== null, "Sample 6 code segment is separated");
+        assert(res6[0].code.includes("int i = 0;") && res6[0].code.includes("cout<<arr[i];"), "Sample 6 code contains statements");
+        assert(res6[0].code.includes("\n"), "Sample 6 code preserves multi-line formatting");
+
+        // Test 7: Single-line merged coding question
+        const sample7 = `
+        1. What is the output of following code? int i = 0; for(int i = 0; i < n; i++){ cout<<arr[i]; }
+        A) 0 1 2
+        B) Error
+        Answer: A
+        `;
+        const res7 = parser.parse(sample7);
+        assert(res7.length === 1, "Sample 7 parsed merged line coding question");
+        assert(res7[0].code !== null, "Sample 7 code extracted from merged single-line");
+        assert(res7[0].code.includes("\n"), "Sample 7 formatted single-line code into multi-line with newlines");
+
         document.getElementById('results').innerHTML = `
             <h2>Tests Complete: ${passed} Passed, ${failed} Failed</h2>
             <pre>${logs.join('\n')}</pre>

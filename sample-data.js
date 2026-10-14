@@ -6,6 +6,19 @@ window.SAMPLE_QUIZ = [
     {
         id: 1,
         number: 1,
+        question: "What is the output of following code?\nint i = 0;\nfor(int i = 0; i < 3; i++){\n    cout << i << \" \";\n}",
+        options: [
+            { key: "A", text: "0 1 2" },
+            { key: "B", text: "0 1 2 3" },
+            { key: "C", text: "Compilation Error (redeclaration of 'i')" },
+            { key: "D", text: "Infinite loop" }
+        ],
+        correctAnswer: "A",
+        explanation: "In C++, the inner loop variable 'i' shadows the outer 'i' within the loop body, successfully printing 0 1 2."
+    },
+    {
+        id: 2,
+        number: 2,
         question: "Which of the following is the primary role of the CSS 'box-sizing: border-box' declaration?",
         options: [
             { key: "A", text: "It hides the borders of child elements automatically." },
@@ -17,8 +30,8 @@ window.SAMPLE_QUIZ = [
         explanation: "By default (content-box), padding and border add to the element's width. With border-box, padding and border are included in the specified width and height."
     },
     {
-        id: 2,
-        number: 2,
+        id: 3,
+        number: 3,
         question: "In JavaScript, what will the expression `typeof NaN` evaluate to?",
         options: [
             { key: "A", text: "'undefined'" },
@@ -30,8 +43,8 @@ window.SAMPLE_QUIZ = [
         explanation: "Although 'NaN' stands for 'Not-a-Number', its technical ECMAScript type is numeric, so typeof NaN returns 'number'."
     },
     {
-        id: 3,
-        number: 3,
+        id: 4,
+        number: 4,
         question: "Which HTTP status code signifies that a requested resource was successfully created on the server?",
         options: [
             { key: "A", text: "200 OK" },
@@ -43,8 +56,8 @@ window.SAMPLE_QUIZ = [
         explanation: "HTTP 201 Created is the standard RESTful response code for successful POST requests that create a new resource on the server."
     },
     {
-        id: 4,
-        number: 4,
+        id: 5,
+        number: 5,
         question: "What does the 'defer' attribute on a `<script>` tag accomplish?",
         options: [
             { key: "A", text: "It cancels execution until an explicit user action occurs." },
@@ -56,8 +69,8 @@ window.SAMPLE_QUIZ = [
         explanation: "The defer attribute downloads scripts in parallel with DOM parsing and executes them in document order once DOMContentLoaded is ready."
     },
     {
-        id: 5,
-        number: 5,
+        id: 6,
+        number: 6,
         question: "Which data structure operates on a First-In, First-Out (FIFO) principle?",
         options: [
             { key: "A", text: "Queue" },

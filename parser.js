@@ -174,8 +174,8 @@ class MCQParser {
                         }
                     }
                 } else if (currentSection === 'question') {
-                    // Continuation of question text
-                    currentQuestion.question += (currentQuestion.question ? ' ' : '') + line;
+                    // Continuation of question text (preserve line breaks for code)
+                    currentQuestion.question += (currentQuestion.question ? '\n' : '') + line;
                 }
             }
         }
@@ -271,8 +271,21 @@ class MCQParser {
      * Finalizes and cleans up a question object before adding
      */
     finalizeQuestion(q) {
-        // Clean question text
-        q.question = q.question.replace(/\s+/g, ' ').trim();
+        // Normalize question lines while preserving intentional line breaks for code
+        if (q.question) {
+            const rawLines = q.question.split('\n');
+            q.question = rawLines
+                .map(l => l.trimEnd())
+                .filter((l, idx, arr) => l.trim() || (idx > 0 && idx < arr.length - 1 && arr[idx - 1].trim()))
+                .join('\n')
+                .trim();
+        }
+
+        // Extract code snippet if present
+        const codeAnalysis = this.extractQuestionAndCode(q.question);
+        q.prompt = codeAnalysis.prompt;
+        q.code = codeAnalysis.code;
+        q.subPrompt = codeAnalysis.subPrompt;
 
         // Sort options A, B, C, D...
         q.options.sort((a, b) => a.key.localeCompare(b.key));
@@ -296,6 +309,215 @@ class MCQParser {
                 q.explanation = `Option ${q.correctAnswer} is the verified correct answer for this question.`;
             }
         }
+    }
+
+    /**
+     * Splits a question string into prompt, code snippet, and optional sub-prompt.
+     * Also formats code with clean indentation and newlines if it was extracted as a single line.
+     * @param {string} rawText 
+     * @returns {{ prompt: string, code: string|null, subPrompt: string|null }}
+     */
+    extractQuestionAndCode(rawText) {
+        if (!rawText || typeof rawText !== 'string') {
+            return { prompt: '', code: null, subPrompt: null };
+        }
+
+        const trimmed = rawText.trim();
+
+        // 1. Check for Markdown code fences ```lang ... ```
+        const fenceMatch = trimmed.match(/([\s\S]*?)```(?:[a-zA-Z0-9_-]+)?\s*\n?([\s\S]*?)```([\s\S]*)/);
+        if (fenceMatch) {
+            const prompt = fenceMatch[1].trim();
+            const code = fenceMatch[2].trim();
+            const subPrompt = fenceMatch[3].trim() || null;
+            return { prompt: prompt || 'Analyze the following code:', code, subPrompt };
+        }
+
+        // 2. Multi-line question with code segment
+        if (trimmed.includes('\n')) {
+            const lines = trimmed.split('\n');
+            let firstCodeIdx = -1;
+            let lastCodeIdx = -1;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (this.isCodeLine(line)) {
+                    if (firstCodeIdx === -1) firstCodeIdx = i;
+                    lastCodeIdx = i;
+                } else if (firstCodeIdx !== -1) {
+                    // Check if line continues a code block (e.g. closing brace, empty line, or comment)
+                    if (line === '}' || line === '};' || line.startsWith('//') || line.startsWith('/*') || !line) {
+                        lastCodeIdx = i;
+                    }
+                }
+            }
+
+            if (firstCodeIdx !== -1) {
+                const promptLines = lines.slice(0, firstCodeIdx).map(l => l.trim()).filter(Boolean);
+                const codeLines = lines.slice(firstCodeIdx, lastCodeIdx + 1);
+                const subPromptLines = lines.slice(lastCodeIdx + 1).map(l => l.trim()).filter(Boolean);
+
+                const prompt = promptLines.join(' ').trim();
+                const code = codeLines.join('\n').trimEnd();
+                const subPrompt = subPromptLines.length > 0 ? subPromptLines.join(' ').trim() : null;
+
+                if (code.length > 0) {
+                    return {
+                        prompt: prompt || 'What is the output of the following code?',
+                        code: code,
+                        subPrompt: subPrompt
+                    };
+                }
+            }
+        }
+
+        // 3. Single-line code detection:
+        // Handles "What is the output of following code? int i = 0; for(int i = 0; i < n; i++){ cout<<arr[i]; }"
+        const introRegex = /^(.*?(?:output\s+(?:of|from)\s+(?:the\s+)?following(?:\s+code|\s+snippet|\s+program)?|consider\s+(?:the\s+)?(?:following\s+)?code|what\s+will\s+(?:the\s+following|this)\s+(?:code|program|function)\s+(?:print|output|return)|given\s+the\s+(?:following\s+)?(?:code|function|snippet))[:?]?)\s+([a-zA-Z#_].*)/i;
+        const introMatch = trimmed.match(introRegex);
+
+        if (introMatch) {
+            const promptCandidate = introMatch[1].trim();
+            const restCandidate = introMatch[2].trim();
+
+            if (this.hasCodeIndicators(restCandidate)) {
+                const splitResult = this.splitTrailingQuestionFromCode(restCandidate);
+                return {
+                    prompt: promptCandidate,
+                    code: this.formatCodeSnippet(splitResult.code),
+                    subPrompt: splitResult.subPrompt
+                };
+            }
+        }
+
+        // 4. Code indicator check without explicit intro phrase
+        // e.g. "int a = 5; int b = 10; cout << (a + b); What will be printed?"
+        if (this.hasCodeIndicators(trimmed)) {
+            const splitResult = this.splitTrailingQuestionFromCode(trimmed);
+            if (splitResult.code && splitResult.subPrompt) {
+                return {
+                    prompt: 'Consider the following code:',
+                    code: this.formatCodeSnippet(splitResult.code),
+                    subPrompt: splitResult.subPrompt
+                };
+            }
+        }
+
+        return {
+            prompt: trimmed.replace(/\s+/g, ' '),
+            code: null,
+            subPrompt: null
+        };
+    }
+
+    /**
+     * Checks if a single line resembles programming code
+     */
+    isCodeLine(line) {
+        if (!line) return false;
+        const trimmed = line.trim();
+
+        // Common code line endings
+        if (/[;{}]$/.test(trimmed)) return true;
+
+        // Keywords at line start or statements
+        if (/^(?:#include|import|from|using\s+namespace|def|class|struct|interface|enum|public|private|protected|static|void|int|float|double|char|bool|long|short|unsigned|const|let|var|auto|return|typedef)\b/.test(trimmed)) return true;
+
+        // Control flow & loops
+        if (/^(?:for|while|if|else\s+if|else|switch|case|catch|try|do)\b/.test(trimmed)) return true;
+
+        // Standard I/O or methods
+        if (/(?:cout\s*<<|cin\s*>>|printf\s*\(|scanf\s*\(|System\.out\.|console\.log|print\s*\(|\.append\(|\.push\()/.test(trimmed)) return true;
+
+        // Code syntax operators
+        if (/(?:->|::|<<|>>|\+\+|--|==|!=|\+=|-=|\*=|\/=|&&|\|\|)/.test(trimmed)) return true;
+
+        // Single closing or opening braces/parentheses
+        if (/^[{}()\[\];,]+$/.test(trimmed)) return true;
+
+        return false;
+    }
+
+    /**
+     * Checks if a string contains code indicators
+     */
+    hasCodeIndicators(str) {
+        if (!str) return false;
+        const semicolonCount = (str.match(/;/g) || []).length;
+        const braceCount = (str.match(/[{}]/g) || []).length;
+        const keywordMatch = /(?:#include|def\s+\w+|for\s*\(|while\s*\(|cout\s*<<|cin\s*>>|printf\s*\(|System\.out|console\.log|int\s+\w+|float\s+\w+|char\s+\w+|return\b)/.test(str);
+
+        return (semicolonCount >= 1 && (braceCount >= 1 || keywordMatch)) || 
+               (keywordMatch && (semicolonCount >= 1 || braceCount >= 1)) ||
+               (semicolonCount >= 2);
+    }
+
+    /**
+     * Formats code with proper newlines and indentation.
+     * Especially useful when code from PDF is squished into one line.
+     */
+    formatCodeSnippet(rawCode) {
+        if (!rawCode) return '';
+        const trimmed = rawCode.trim();
+
+        // If it already contains multiple lines, normalize indentation
+        if (trimmed.includes('\n')) {
+            const lines = trimmed.split('\n');
+            return lines.map(l => l.trimEnd()).join('\n');
+        }
+
+        // Single-line code: insert newlines after semicolons and braces
+        let formatted = '';
+        let inParen = 0;
+        let indentLevel = 0;
+        const getIndent = () => '    '.repeat(Math.max(0, indentLevel));
+
+        for (let i = 0; i < trimmed.length; i++) {
+            const ch = trimmed[i];
+
+            if (ch === '(') inParen++;
+            else if (ch === ')') inParen = Math.max(0, inParen - 1);
+
+            if (ch === '{') {
+                indentLevel++;
+                formatted += ' {\n' + getIndent();
+                while (trimmed[i + 1] === ' ') i++;
+                continue;
+            } else if (ch === '}') {
+                indentLevel = Math.max(0, indentLevel - 1);
+                formatted += '\n' + getIndent() + '}';
+                if (trimmed[i + 1] && trimmed[i + 1] !== ';') {
+                    formatted += '\n' + getIndent();
+                }
+                while (trimmed[i + 1] === ' ') i++;
+                continue;
+            } else if (ch === ';' && inParen === 0) {
+                formatted += ';\n' + getIndent();
+                while (trimmed[i + 1] === ' ') i++;
+                continue;
+            }
+
+            formatted += ch;
+        }
+
+        return formatted.trim();
+    }
+
+    /**
+     * Detects if a code block is followed by a question prompt
+     */
+    splitTrailingQuestionFromCode(str) {
+        const trailingQMatch = str.match(/(.*?)(?:(?:\}\s*|\;\s*)(What\s+.*|Find\s+.*|Which\s+.*|The\s+output\s+.*|\?\s*))$/i);
+        if (trailingQMatch) {
+            return {
+                code: trailingQMatch[1].trim(),
+                subPrompt: trailingQMatch[2].trim()
+            };
+        }
+        return {
+            code: str,
+            subPrompt: null
+        };
     }
 
     /**
@@ -324,6 +546,9 @@ class MCQParser {
                 id: idx + 1,
                 number: q.number || (idx + 1),
                 question: q.question,
+                prompt: q.prompt || q.question,
+                code: q.code || null,
+                subPrompt: q.subPrompt || null,
                 options: q.options,
                 correctAnswer: q.correctAnswer.toUpperCase(),
                 explanation: q.explanation || `Option ${q.correctAnswer} is the correct choice.`,

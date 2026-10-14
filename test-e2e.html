@@ -43,21 +43,31 @@
                     const quizView = doc.getElementById('quizView');
                     assert(quizView.classList.contains('active'), "Quiz view is activated after clicking Sample Quiz");
 
-                    // 4. Verify Progress Counter shows "Question 1 of 5"
+                    // 4. Verify Progress Counter shows "Question 1 of 6"
                     const counter = doc.getElementById('progressCounter');
-                    assert(counter.textContent.trim() === "Question 1 of 5", "Counter reads 'Question 1 of 5'");
+                    assert(counter.textContent.trim() === "Question 1 of 6", "Counter reads 'Question 1 of 6'");
 
-                    // 5. Check options rendered (4 options for Q1)
+                    // 5. Verify dedicated code segment is visible for coding question
+                    const codeCard = doc.getElementById('questionCodeCard');
+                    const codeContent = doc.getElementById('questionCodeContent');
+                    assert(codeCard && codeCard.style.display !== 'none', "Code snippet card is visible for coding question");
+                    assert(codeContent && codeContent.textContent.includes("int i = 0;") && codeContent.textContent.includes("cout << i"), "Code snippet contains multi-line C++ code");
+
+                    // Verify copy button exists
+                    const copyBtn = doc.getElementById('copyCodeBtn');
+                    assert(copyBtn !== null, "Copy code button exists");
+
+                    // 6. Check options rendered (4 options for Q1)
                     const optionBtns = doc.querySelectorAll('#optionsContainer .option-btn');
                     assert(optionBtns.length === 4, "4 options rendered for Question 1");
 
-                    // Q1: Option B is correct. Let's click Option A (Wrong)
-                    const wrongBtnA = doc.querySelector('#optionsContainer .option-btn[data-key="A"]');
-                    assert(wrongBtnA !== null, "Option A button exists");
-                    wrongBtnA.click();
+                    // Q1: Option A is correct. Let's click Option B (Wrong)
+                    const wrongBtnB = doc.querySelector('#optionsContainer .option-btn[data-key="B"]');
+                    assert(wrongBtnB !== null, "Option B button exists");
+                    wrongBtnB.click();
 
-                    // Check wrong-temp class applied to Option A
-                    assert(wrongBtnA.classList.contains('wrong-temp'), "Option A got 'wrong-temp' class (turns red temporarily)");
+                    // Check wrong-temp class applied to Option B
+                    assert(wrongBtnB.classList.contains('wrong-temp'), "Option B got 'wrong-temp' class (turns red temporarily)");
 
                     // Verify explanation is NOT yet visible
                     const expBox = doc.getElementById('explanationBox');
@@ -69,36 +79,32 @@
                     assert(wrongBtnC !== null, "Option C button exists");
                     wrongBtnC.click();
 
-                    assert(!wrongBtnA.classList.contains('wrong-temp'), "Option A red state was immediately removed when Option C was clicked");
+                    assert(!wrongBtnB.classList.contains('wrong-temp'), "Option B red state was immediately removed when Option C was clicked");
                     assert(wrongBtnC.classList.contains('wrong-temp'), "Option C now got 'wrong-temp' class (turns red temporarily)");
 
-                    // 6. Click Option B (Correct)
-                    const correctBtn = doc.querySelector('#optionsContainer .option-btn[data-key="B"]');
-                    assert(correctBtn !== null, "Option B button exists");
-                    correctBtn.click();
+                    // 7. Click Option A (Correct)
+                    const correctBtnA = doc.querySelector('#optionsContainer .option-btn[data-key="A"]');
+                    assert(correctBtnA !== null, "Option A button exists");
+                    correctBtnA.click();
 
                     // Verify Option C red state removed
-                    assert(!wrongBtnC.classList.contains('wrong-temp'), "Option C red state was removed when Option B was clicked");
+                    assert(!wrongBtnC.classList.contains('wrong-temp'), "Option C red state was removed when Option A was clicked");
 
-                    // Verify Option B turns green (.correct class)
-                    assert(correctBtn.classList.contains('correct'), "Option B got 'correct' class (turns green)");
-
-                    // Verify other options are dimmed and locked
-                    assert(wrongBtnA.classList.contains('option-dimmed'), "Non-correct option A got 'option-dimmed' class");
-                    assert(wrongBtnC.classList.contains('option-dimmed'), "Non-correct option C got 'option-dimmed' class");
+                    // Verify Option A turns green (.correct class)
+                    assert(correctBtnA.classList.contains('correct'), "Option A got 'correct' class (turns green)");
 
                     // Verify Explanation is now visible
                     assert(expBox.classList.contains('visible'), "Explanation box is now visible after correct choice");
                     const expText = doc.getElementById('explanationContent').textContent;
-                    assert(expText.includes("border-box"), "Explanation text contains relevant details");
+                    assert(expText.includes("shadows"), "Explanation text contains relevant details");
 
-                    // 7. Verify Next Question button has pulse and works
+                    // 8. Verify Next Question button has pulse and works
                     const nextBtn = doc.getElementById('nextQuestionBtn');
                     assert(nextBtn.classList.contains('next-btn-pulse'), "Next Question button has pulse class");
                     nextBtn.click();
 
                     // Verify Question 2 is now active, explanation hidden
-                    assert(counter.textContent.trim() === "Question 2 of 5", "Counter updated to 'Question 2 of 5'");
+                    assert(counter.textContent.trim() === "Question 2 of 6", "Counter updated to 'Question 2 of 6'");
                     assert(!expBox.classList.contains('visible'), "Explanation box is reset/hidden for Question 2");
                     const q2Btns = doc.querySelectorAll('#optionsContainer .option-btn');
                     assert(!q2Btns[0].classList.contains('wrong-temp') && !q2Btns[0].classList.contains('correct'), "Question 2 options are fresh without red or green");

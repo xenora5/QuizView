@@ -175,6 +175,30 @@
             <div class="quiz-card">
                 <div class="question-header">
                     <h2 class="question-text" id="questionText">Loading question prompt...</h2>
+                    
+                    <!-- Dedicated Code Snippet Segment -->
+                    <div class="question-code-card" id="questionCodeCard" style="display: none;">
+                        <div class="code-toolbar">
+                            <span class="code-badge">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="16 18 22 12 16 6"></polyline>
+                                    <polyline points="8 6 2 12 8 18"></polyline>
+                                </svg>
+                                <span>Code Snippet</span>
+                            </span>
+                            <button type="button" class="copy-code-btn" id="copyCodeBtn" title="Copy code to clipboard">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                <span id="copyCodeText">Copy</span>
+                            </button>
+                        </div>
+                        <pre class="code-viewport"><code id="questionCodeContent"></code></pre>
+                    </div>
+
+                    <!-- Follow-up Question Sub-Prompt (e.g. What is printed?) -->
+                    <div class="question-subprompt" id="questionSubPrompt" style="display: none;"></div>
                 </div>
 
                 <!-- Multiple Choice Options -->

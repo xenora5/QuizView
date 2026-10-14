@@ -56,6 +56,11 @@
         progressBarFill: document.getElementById('progressBarFill'),
         questionNavStrip: document.getElementById('questionNavStrip'),
         questionText: document.getElementById('questionText'),
+        questionCodeCard: document.getElementById('questionCodeCard'),
+        questionCodeContent: document.getElementById('questionCodeContent'),
+        questionSubPrompt: document.getElementById('questionSubPrompt'),
+        copyCodeBtn: document.getElementById('copyCodeBtn'),
+        copyCodeText: document.getElementById('copyCodeText'),
         optionsContainer: document.getElementById('optionsContainer'),
         explanationBox: document.getElementById('explanationBox'),
         explanationContent: document.getElementById('explanationContent'),
@@ -114,6 +119,45 @@
         if (elements.headerEditorBtn) {
             elements.headerEditorBtn.addEventListener('click', openEditorModal);
         }
+
+        // Copy code button handler
+        if (elements.copyCodeBtn) {
+            elements.copyCodeBtn.addEventListener('click', () => {
+                const codeToCopy = elements.questionCodeContent ? elements.questionCodeContent.textContent : '';
+                if (!codeToCopy) return;
+
+                const onCopied = () => {
+                    elements.copyCodeText.textContent = 'Copied! ✓';
+                    setTimeout(() => {
+                        elements.copyCodeText.textContent = 'Copy';
+                    }, 2000);
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(codeToCopy).then(onCopied).catch(() => {
+                        fallbackCopy(codeToCopy, onCopied);
+                    });
+                } else {
+                    fallbackCopy(codeToCopy, onCopied);
+                }
+            });
+        }
+    }
+
+    function fallbackCopy(text, callback) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            if (callback) callback();
+        } catch (e) {
+            console.error('Copy failed', e);
+        }
+        document.body.removeChild(ta);
     }
 
     // ==========================================================================
@@ -397,8 +441,30 @@
             pills[currentQuestionIndex].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
         }
 
-        // Render question text
-        elements.questionText.textContent = `${q.number || qNum}. ${q.question}`;
+        // Render question text & separate code segment if present
+        const analysis = parser.extractQuestionAndCode(q.question);
+        const promptText = q.prompt || analysis.prompt || q.question;
+        const codeText = q.code !== undefined && q.code !== null ? q.code : analysis.code;
+        const subPromptText = q.subPrompt !== undefined && q.subPrompt !== null ? q.subPrompt : analysis.subPrompt;
+
+        elements.questionText.textContent = `${q.number || qNum}. ${promptText}`;
+
+        if (codeText && elements.questionCodeCard && elements.questionCodeContent) {
+            elements.questionCodeCard.style.display = 'block';
+            elements.questionCodeContent.textContent = codeText;
+            if (elements.copyCodeText) elements.copyCodeText.textContent = 'Copy';
+        } else if (elements.questionCodeCard) {
+            elements.questionCodeCard.style.display = 'none';
+            if (elements.questionCodeContent) elements.questionCodeContent.textContent = '';
+        }
+
+        if (subPromptText && elements.questionSubPrompt) {
+            elements.questionSubPrompt.style.display = 'block';
+            elements.questionSubPrompt.textContent = subPromptText;
+        } else if (elements.questionSubPrompt) {
+            elements.questionSubPrompt.style.display = 'none';
+            elements.questionSubPrompt.textContent = '';
+        }
 
         // Render Options
         renderOptions(q, state);
@@ -693,11 +759,27 @@
             const correctOpt = q.options.find(o => o.key === q.correctAnswer);
             const correctText = correctOpt ? correctOpt.text : '';
 
+            const analysis = parser.extractQuestionAndCode(q.question);
+            const promptText = q.prompt || analysis.prompt || q.question;
+            const codeText = q.code !== undefined && q.code !== null ? q.code : analysis.code;
+            const subPromptText = q.subPrompt !== undefined && q.subPrompt !== null ? q.subPrompt : analysis.subPrompt;
+
+            let codeSnippetHtml = '';
+            if (codeText) {
+                codeSnippetHtml = `<div class="review-code-block"><pre><code>${escapeHtml(codeText)}</code></pre></div>`;
+            }
+            let subPromptHtml = '';
+            if (subPromptText) {
+                subPromptHtml = `<div class="review-q-subprompt">${escapeHtml(subPromptText)}</div>`;
+            }
+
             item.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-                    <div class="review-q-title">Q${idx + 1}. ${escapeHtml(q.question)}</div>
+                    <div class="review-q-title">Q${idx + 1}. ${escapeHtml(promptText)}</div>
                     <div>${statusBadge}</div>
                 </div>
+                ${codeSnippetHtml}
+                ${subPromptHtml}
                 <div class="review-ans-row">
                     <strong>Correct Option (${q.correctAnswer}):</strong> ${escapeHtml(correctText)}
                 </div>
@@ -862,10 +944,14 @@
             });
 
             if (qText && options.length >= 2) {
+                const analysis = parser.extractQuestionAndCode(qText);
                 updatedList.push({
                     id: idx + 1,
                     number: idx + 1,
                     question: qText,
+                    prompt: analysis.prompt || qText,
+                    code: analysis.code,
+                    subPrompt: analysis.subPrompt,
                     options: options,
                     correctAnswer: correctAns,
                     explanation: expText || `Option ${correctAns} is correct.`
