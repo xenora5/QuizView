@@ -49,9 +49,23 @@ class MCQParser {
         let currentQuestion = null;
         let currentSection = null; // 'question', 'option', 'explanation'
         let currentOptionKey = null;
+        let fenced = false;
 
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i].trim();
+            // Fenced code is opaque to question/answer detection, including A) and 1. lines.
+            if (currentQuestion && (fenced || line.startsWith('```'))) {
+                const value = lines[i];
+                if (currentSection === 'option' && currentOptionKey) {
+                    currentQuestion.options.find(o => o.key === currentOptionKey).text += '\n' + value;
+                } else if (currentSection === 'explanation') {
+                    currentQuestion.explanation += '\n' + value;
+                } else {
+                    currentQuestion.question += '\n' + value;
+                }
+                if (line.startsWith('```')) fenced = !fenced;
+                continue;
+            }
             if (!line || this.noiseRegex.test(line)) continue;
 
             // Check if this line marks the start of the Answer Key section
@@ -70,6 +84,7 @@ class MCQParser {
             if (expMatch && currentQuestion) {
                 currentSection = 'explanation';
                 currentQuestion.explanation = expMatch[1].trim();
+                fenced = currentQuestion.explanation.startsWith('```');
                 continue;
             }
 
@@ -138,9 +153,9 @@ class MCQParser {
 
                     // Check if option line contains answer marker (e.g. "A) Paris [Correct]" or "*A) Paris")
                     let isMarkedCorrect = false;
-                    if (optText.includes('[x]') || optText.includes('(correct)') || optText.includes('*') || line.trim().startsWith('*') || line.includes('✓')) {
+                    if (optText.includes('[x]') || optText.includes('(correct)') || line.trim().startsWith('*') || line.includes('✓')) {
                         isMarkedCorrect = true;
-                        optText = optText.replace(/\[x\]|\(correct\)|✓|\*/gi, '').trim();
+                        optText = optText.replace(/\[x\]|\(correct\)|✓/gi, '').trim();
                     }
 
                     // Also check if Answer: X is at the end of option line
@@ -155,12 +170,13 @@ class MCQParser {
                         currentQuestion.correctAnswer = optKey;
                     }
                     currentOptionKey = optKey;
+                    fenced = optText.startsWith('```');
                     continue;
                 }
 
                 // If not an option start, it could be a continuation of current section
                 if (currentSection === 'explanation') {
-                    currentQuestion.explanation += (currentQuestion.explanation ? ' ' : '') + line;
+                    currentQuestion.explanation += (currentQuestion.explanation ? '\n' : '') + lines[i];
                 } else if (currentSection === 'option' && currentOptionKey) {
                     // Check if line holds an inline answer before treating as option continuation
                     const inlineAns = line.match(this.answerRegex) || line.match(this.answerIsRegex);
@@ -170,12 +186,12 @@ class MCQParser {
                         // Append to current option
                         const opt = currentQuestion.options.find(o => o.key === currentOptionKey);
                         if (opt) {
-                            opt.text += ' ' + line;
+                            opt.text += '\n' + lines[i];
                         }
                     }
                 } else if (currentSection === 'question') {
                     // Continuation of question text (preserve line breaks for code)
-                    currentQuestion.question += (currentQuestion.question ? '\n' : '') + line;
+                    currentQuestion.question += (currentQuestion.question ? '\n' : '') + lines[i];
                 }
             }
         }
@@ -212,9 +228,9 @@ class MCQParser {
             let text = match[2].trim();
             let isMarkedCorrect = false;
 
-            if (text.includes('[x]') || text.includes('(correct)') || text.includes('*')) {
+            if (text.includes('[x]') || text.includes('(correct)')) {
                 isMarkedCorrect = true;
-                text = text.replace(/\[x\]|\(correct\)|✓|\*/gi, '').trim();
+                text = text.replace(/\[x\]|\(correct\)|✓/gi, '').trim();
             }
 
             matches.push({ key, text, isMarkedCorrect });
@@ -272,7 +288,7 @@ class MCQParser {
      */
     finalizeQuestion(q) {
         // Normalize question lines while preserving intentional line breaks for code
-        if (q.question) {
+        if (q.question && !q.question.includes('```')) {
             const rawLines = q.question.split('\n');
             q.question = rawLines
                 .map(l => l.trimEnd())
@@ -292,12 +308,12 @@ class MCQParser {
 
         // Clean option texts
         q.options.forEach(opt => {
-            opt.text = opt.text.replace(/\s+/g, ' ').trim();
+            opt.text = opt.text.trim();
         });
 
         // Ensure explanation is cleaned
         if (q.explanation) {
-            q.explanation = q.explanation.replace(/\s+/g, ' ').trim();
+            q.explanation = q.explanation.trim();
         }
 
         // If no explanation is found, generate an intuitive default explanation
@@ -323,6 +339,7 @@ class MCQParser {
         }
 
         const trimmed = rawText.trim();
+        if (/\$|\\[([]/.test(trimmed)) return { prompt: trimmed, code: null, subPrompt: null };
 
         // 1. Check for Markdown code fences ```lang ... ```
         const fenceMatch = trimmed.match(/([\s\S]*?)```(?:[a-zA-Z0-9_-]+)?\s*\n?([\s\S]*?)```([\s\S]*)/);
