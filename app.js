@@ -13,6 +13,9 @@
     let rawPdfText = '';
     let wrongOptionTimer = null;
     let currentlyRedButton = null;
+    let revealFrame = null;
+    let editorOpener = null;
+    const scrollBehavior = () => matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
 
     // Initialize PDF.js worker safely with cross-origin Blob fallback for GitHub Pages
     if (typeof pdfjsLib !== 'undefined') {
@@ -99,6 +102,20 @@
         setupResultsControls();
         setupEditorEvents();
         setupKeyboardNavigation();
+        document.getElementById('backToQuestionBtn').addEventListener('click', () => {
+            elements.questionText.focus({ preventScroll: true });
+            elements.questionText.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
+        });
+        const resume = document.getElementById('resumeQuizBtn');
+        try {
+            const saved = JSON.parse(localStorage.getItem('quizview.questions') || 'null');
+            if (Array.isArray(saved) && saved.length && saved.every(q => typeof q.question === 'string' &&
+                typeof q.correctAnswer === 'string' && Array.isArray(q.options) && q.options.length >= 2 &&
+                q.options.every(o => typeof o.key === 'string' && typeof o.text === 'string'))) {
+                resume.hidden = false;
+                resume.addEventListener('click', () => { startQuizWithQuestions(saved); resume.hidden = true; });
+            }
+        } catch (_) { /* Browser storage may be disabled. The quiz still works. */ }
 
         // Check if there is sample data available
         if (elements.sampleQuizBtn) {
@@ -178,7 +195,7 @@
             elements.resultsView.classList.add('active');
             elements.headerEditorBtn.style.display = 'inline-flex';
         }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: scrollBehavior() });
     }
 
     // ==========================================================================
@@ -415,6 +432,8 @@
 
     function renderCurrentQuestion() {
         clearPreviousRedStates();
+        cancelAnimationFrame(revealFrame);
+        document.getElementById('answerFeedback').textContent = '';
 
         const q = currentQuestions[currentQuestionIndex];
         const state = quizState[currentQuestionIndex];
@@ -438,16 +457,18 @@
 
         // Scroll active pill into view
         if (pills[currentQuestionIndex]) {
-            pills[currentQuestionIndex].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            pills[currentQuestionIndex].scrollIntoView({ behavior: scrollBehavior(), inline: 'center', block: 'nearest' });
         }
 
         // Render question text & separate code segment if present
-        const analysis = parser.extractQuestionAndCode(q.question);
-        const promptText = q.prompt || analysis.prompt || q.question;
-        const codeText = q.code !== undefined && q.code !== null ? q.code : analysis.code;
-        const subPromptText = q.subPrompt !== undefined && q.subPrompt !== null ? q.subPrompt : analysis.subPrompt;
+        const analysis = QuizContent.isExplicit(q.question)
+            ? { prompt: q.question, code: null, subPrompt: null }
+            : parser.extractQuestionAndCode(q.question);
+        const promptText = QuizContent.isExplicit(q.question) ? q.question : (q.prompt || analysis.prompt || q.question);
+        const codeText = QuizContent.isExplicit(q.question) ? null : (q.code !== undefined && q.code !== null ? q.code : analysis.code);
+        const subPromptText = QuizContent.isExplicit(q.question) ? null : (q.subPrompt !== undefined && q.subPrompt !== null ? q.subPrompt : analysis.subPrompt);
 
-        elements.questionText.textContent = `${q.number || qNum}. ${promptText}`;
+        QuizContent.render(elements.questionText, `${q.number || qNum}. ${promptText}`);
 
         if (codeText && elements.questionCodeCard && elements.questionCodeContent) {
             elements.questionCodeCard.style.display = 'block';
@@ -460,7 +481,7 @@
 
         if (subPromptText && elements.questionSubPrompt) {
             elements.questionSubPrompt.style.display = 'block';
-            elements.questionSubPrompt.textContent = subPromptText;
+            QuizContent.render(elements.questionSubPrompt, subPromptText);
         } else if (elements.questionSubPrompt) {
             elements.questionSubPrompt.style.display = 'none';
             elements.questionSubPrompt.textContent = '';
@@ -472,7 +493,7 @@
         // Render Explanation
         if (state.solved) {
             elements.explanationBox.classList.add('visible');
-            elements.explanationContent.textContent = q.explanation || `Option ${q.correctAnswer} is the correct answer.`;
+            QuizContent.render(elements.explanationContent, q.explanation || `Option ${q.correctAnswer} is the correct answer.`);
             elements.nextQuestionBtn.classList.add('next-btn-pulse');
         } else {
             elements.explanationBox.classList.remove('visible');
@@ -537,12 +558,15 @@
             }
 
             btn.innerHTML = `
-                <span class="option-key">${opt.key}</span>
-                <span class="option-text">${opt.text}</span>
-                <span class="option-status-icon">
+                <span class="option-key">${escapeHtml(opt.key)}</span>
+                <span class="option-text"></span>
+                <span class="option-status-icon" aria-hidden="true">
                     ${isCorrect ? '✓' : '✕'}
                 </span>
             `;
+
+            QuizContent.render(btn.querySelector('.option-text'), opt.text);
+            btn.setAttribute('aria-disabled', String(isAlreadySolved));
 
             // Option selection click handler
             btn.addEventListener('click', () => {
@@ -579,6 +603,7 @@
 
             // Wrong option turns RED temporarily with shake
             clickedBtn.classList.add('wrong-temp');
+            document.getElementById('answerFeedback').textContent = `Option ${selectedKey} is incorrect. Try again.`;
             currentlyRedButton = clickedBtn;
 
             // Play subtle vibration on supported mobile devices
@@ -617,6 +642,7 @@
         const allOptionBtns = elements.optionsContainer.querySelectorAll('.option-btn');
         allOptionBtns.forEach(btn => {
             btn.classList.add('locked');
+            btn.setAttribute('aria-disabled', 'true');
             if (btn !== clickedBtn) {
                 btn.classList.add('option-dimmed');
             }
@@ -624,7 +650,17 @@
 
         // Reveal 1-2 line explanation smoothly
         elements.explanationBox.classList.add('visible');
-        elements.explanationContent.textContent = q.explanation || `Option ${q.correctAnswer} is the verified correct answer.`;
+        QuizContent.render(elements.explanationContent, q.explanation || `Option ${q.correctAnswer} is the verified correct answer.`);
+        document.getElementById('answerFeedback').textContent = `Correct. Option ${selectedKey}. Explanation is now available below.`;
+        // Only a new correct answer triggers this, never a re-render or a revisit.
+        cancelAnimationFrame(revealFrame);
+        revealFrame = requestAnimationFrame(() => {
+            const box = elements.explanationBox.getBoundingClientRect();
+            const headerBottom = document.querySelector('.app-header').getBoundingClientRect().bottom;
+            if (box.top < headerBottom || box.bottom > window.innerHeight - 96) {
+                elements.explanationBox.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
+            }
+        });
 
         // Pulse the Next Question button to encourage moving forward
         elements.nextQuestionBtn.classList.add('next-btn-pulse');
@@ -673,9 +709,11 @@
     function setupKeyboardNavigation() {
         window.addEventListener('keydown', (e) => {
             // Do not capture keyboard if an input/textarea or modal is active
-            if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || elements.editorModal.classList.contains('active')) {
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) || document.activeElement.closest('.rich-code-viewport') || elements.editorModal.classList.contains('active')) {
                 return;
             }
+
+            if (document.activeElement.tagName === 'BUTTON' && ['Enter', ' '].includes(e.key)) return;
 
             // Only active in quiz view
             if (!elements.quizView.classList.contains('active')) return;
@@ -759,10 +797,12 @@
             const correctOpt = q.options.find(o => o.key === q.correctAnswer);
             const correctText = correctOpt ? correctOpt.text : '';
 
-            const analysis = parser.extractQuestionAndCode(q.question);
-            const promptText = q.prompt || analysis.prompt || q.question;
-            const codeText = q.code !== undefined && q.code !== null ? q.code : analysis.code;
-            const subPromptText = q.subPrompt !== undefined && q.subPrompt !== null ? q.subPrompt : analysis.subPrompt;
+            const analysis = QuizContent.isExplicit(q.question)
+            ? { prompt: q.question, code: null, subPrompt: null }
+            : parser.extractQuestionAndCode(q.question);
+            const promptText = QuizContent.isExplicit(q.question) ? q.question : (q.prompt || analysis.prompt || q.question);
+            const codeText = QuizContent.isExplicit(q.question) ? null : (q.code !== undefined && q.code !== null ? q.code : analysis.code);
+            const subPromptText = QuizContent.isExplicit(q.question) ? null : (q.subPrompt !== undefined && q.subPrompt !== null ? q.subPrompt : analysis.subPrompt);
 
             let codeSnippetHtml = '';
             if (codeText) {
@@ -781,11 +821,15 @@
                 ${codeSnippetHtml}
                 ${subPromptHtml}
                 <div class="review-ans-row">
-                    <strong>Correct Option (${q.correctAnswer}):</strong> ${escapeHtml(correctText)}
+                    <strong>Correct Option (${escapeHtml(q.correctAnswer)}):</strong> ${escapeHtml(correctText)}
                 </div>
                 ${q.explanation ? `<div class="review-exp-row"><strong>Explanation:</strong> ${escapeHtml(q.explanation)}</div>` : ''}
             `;
 
+            QuizContent.render(item.querySelector('.review-q-title'), `Q${idx + 1}. ${promptText}`);
+            if (subPromptText) QuizContent.render(item.querySelector('.review-q-subprompt'), subPromptText);
+            QuizContent.render(item.querySelector('.review-ans-row'), `Correct Option (${q.correctAnswer}): ${correctText}`);
+            if (q.explanation) QuizContent.render(item.querySelector('.review-exp-row'), `Explanation: ${q.explanation}`);
             elements.reviewList.appendChild(item);
         });
     }
@@ -815,6 +859,15 @@
     // ==========================================================================
     function setupEditorEvents() {
         elements.closeEditorBtn.addEventListener('click', closeEditorModal);
+        document.getElementById('cancelEditorBtn').addEventListener('click', closeEditorModal);
+        elements.editorModal.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') { event.preventDefault(); closeEditorModal(); }
+            if (event.key !== 'Tab') return;
+            const controls = [...elements.editorModal.querySelectorAll('button, input, textarea')].filter(el => !el.disabled);
+            const first = controls[0], last = controls[controls.length - 1];
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        });
         elements.saveEditorBtn.addEventListener('click', saveEditorChanges);
         elements.addQuestionBtn.addEventListener('click', addNewQuestionInEditor);
 
@@ -833,11 +886,20 @@
         }
 
         renderEditorList();
+        editorOpener = document.activeElement;
         elements.editorModal.classList.add('active');
+        document.querySelector('main').inert = true;
+        document.querySelector('header').inert = true;
+        document.body.style.overflow = 'hidden';
+        elements.closeEditorBtn.focus();
     }
 
     function closeEditorModal() {
         elements.editorModal.classList.remove('active');
+        document.querySelector('main').inert = false;
+        document.querySelector('header').inert = false;
+        document.body.style.overflow = '';
+        editorOpener?.focus();
     }
 
     function renderEditorList() {
@@ -855,7 +917,7 @@
                     <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem;">
                         <input type="radio" name="ans_${idx}" value="${opt.key}" ${isSelected ? 'checked' : ''} title="Mark as correct answer">
                         <span style="font-weight:700; width:20px;">${opt.key}</span>
-                        <input type="text" class="editor-input opt-text-input" data-key="${opt.key}" value="${escapeHtml(opt.text)}" placeholder="Option text">
+                        <textarea aria-label="Option ${opt.key}" class="editor-input opt-text-input" data-key="${opt.key}" placeholder="Option text">${escapeHtml(opt.text)}</textarea>
                     </div>
                 `;
             });
@@ -865,11 +927,11 @@
                     <span class="editor-label">Question ${idx + 1}</span>
                     <button class="btn btn-ghost btn-sm delete-q-btn" style="color:#ef4444;" title="Delete this question">Delete</button>
                 </div>
-                <textarea class="editor-textarea q-text-input" placeholder="Question prompt">${escapeHtml(q.question)}</textarea>
+                <textarea aria-label="Question content" class="editor-textarea q-text-input" placeholder="Question prompt">${escapeHtml(q.question)}</textarea>
                 <div class="editor-label" style="margin-top:0.4rem;">Options (select radio for correct answer)</div>
                 <div class="editor-options-box">${optionsHtml}</div>
-                <div class="editor-label" style="margin-top:0.4rem;">1–2 Line Explanation</div>
-                <input type="text" class="editor-input q-exp-input" value="${escapeHtml(q.explanation || '')}" placeholder="Explanation shown when answered correctly">
+                <div class="editor-label" style="margin-top:0.4rem;">Explanation</div>
+                <textarea aria-label="Explanation" class="editor-input q-exp-input" placeholder="Explanation shown when answered correctly">${escapeHtml(q.explanation || '')}</textarea>
             `;
 
             card.querySelector('.delete-q-btn').addEventListener('click', () => {
@@ -881,7 +943,7 @@
     }
 
     function addNewQuestionInEditor() {
-        const newIndex = elements.editorContainer.querySelectorAll('.editor-card').length;
+        const newIndex = Math.max(-1, ...[...elements.editorContainer.querySelectorAll('.editor-card')].map(c => Number(c.dataset.index))) + 1;
         const card = document.createElement('div');
         card.className = 'editor-card';
         card.dataset.index = newIndex;
@@ -899,7 +961,7 @@
                 <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem;">
                     <input type="radio" name="ans_${newIndex}" value="${opt.key}" ${oIdx === 0 ? 'checked' : ''} title="Mark as correct answer">
                     <span style="font-weight:700; width:20px;">${opt.key}</span>
-                    <input type="text" class="editor-input opt-text-input" data-key="${opt.key}" value="${opt.text}" placeholder="Option text">
+                    <textarea aria-label="Option ${opt.key}" class="editor-input opt-text-input" data-key="${opt.key}" placeholder="Option text">${escapeHtml(opt.text)}</textarea>
                 </div>
             `;
         });
@@ -909,11 +971,11 @@
                 <span class="editor-label">Question ${newIndex + 1} (New)</span>
                 <button class="btn btn-ghost btn-sm delete-q-btn" style="color:#ef4444;" title="Delete this question">Delete</button>
             </div>
-            <textarea class="editor-textarea q-text-input" placeholder="Question prompt">New Question prompt here</textarea>
+            <textarea aria-label="Question content" class="editor-textarea q-text-input" placeholder="Question prompt">New Question prompt here</textarea>
             <div class="editor-label" style="margin-top:0.4rem;">Options (select radio for correct answer)</div>
             <div class="editor-options-box">${optionsHtml}</div>
-            <div class="editor-label" style="margin-top:0.4rem;">1–2 Line Explanation</div>
-            <input type="text" class="editor-input q-exp-input" value="Option A is the correct answer." placeholder="Explanation shown when answered correctly">
+            <div class="editor-label" style="margin-top:0.4rem;">Explanation</div>
+            <textarea aria-label="Explanation" class="editor-input q-exp-input" placeholder="Explanation shown when answered correctly">Option A is the correct answer.</textarea>
         `;
 
         card.querySelector('.delete-q-btn').addEventListener('click', () => {
@@ -921,7 +983,7 @@
         });
 
         elements.editorContainer.appendChild(card);
-        card.scrollIntoView({ behavior: 'smooth' });
+        card.scrollIntoView({ behavior: scrollBehavior() });
     }
 
     function saveEditorChanges() {
@@ -966,7 +1028,10 @@
 
         closeEditorModal();
         startQuizWithQuestions(updatedList);
-        showToast('Changes saved successfully!');
+        try {
+            localStorage.setItem('quizview.questions', JSON.stringify(updatedList));
+            showToast('Quiz saved in this browser.');
+        } catch (_) { showToast('Changes applied. Browser storage is unavailable; keep this tab open.'); }
     }
 
     // ==========================================================================
@@ -1023,31 +1088,27 @@
 (Answer: A) Tj
 0 -16 Td
 (Explanation: HTTP 200 OK is the standard response for successful HTTP requests.) Tj
-ET`;
+ET`.replace(/^\((.*)\) Tj$/gm, (_, text) =>
+            `(${text.replace(/[\\()]/g, '\\$&')}) Tj`);
 
-        const streamLen = stream.length;
-        const sampleText = `%PDF-1.4
-1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
-2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
-3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
-5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
-4 0 obj << /Length ${streamLen} >>
-stream
-${stream}
-endstream
-endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000305 00000 n 
-0000000222 00000 n 
-trailer << /Size 6 /Root 1 0 R >>
-startxref
-1100
-%%EOF`;
+        // Compute byte offsets instead of relying on hard-coded xref positions.
+        const objects = [
+            '<< /Type /Catalog /Pages 2 0 R >>',
+            '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+            `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+            '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+        ];
+        let sampleText = '%PDF-1.4\n';
+        const offsets = [0];
+        objects.forEach((object, index) => {
+            offsets.push(new TextEncoder().encode(sampleText).length);
+            sampleText += `${index + 1} 0 obj\n${object}\nendobj\n`;
+        });
+        const xref = new TextEncoder().encode(sampleText).length;
+        sampleText += 'xref\n0 6\n0000000000 65535 f \n';
+        sampleText += offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+        sampleText += `trailer << /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
 
         const blob = new Blob([sampleText], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);

@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Rich content regression tests</title>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script><script src="../rich-content.js"></script><script src="../parser.js"></script>
+<div id="fixture"></div><pre id="results"></pre><script>
+const fixture = document.getElementById('fixture');
+let passed = 0, failed = 0;
+function check(value, label) { document.getElementById('results').textContent += `${value ? 'PASS' : 'FAIL'} ${label}\n`; value ? passed++ : failed++; }
+QuizContent.render(fixture, '<img src=x onerror=alert(1)> <vector>');
+check(!fixture.querySelector('img') && fixture.textContent.includes('<vector>'), 'HTML is literal text');
+const source = 'Read this:\n```cpp\n  int x = 1;\n\n  cout << "$x$";\n```\nThen $x^2$ and `x < 3`.';
+QuizContent.render(fixture, source);
+check(fixture.querySelector('.rich-code-viewport').textContent === '  int x = 1;\n\n  cout << "$x$";', 'Code whitespace and math-looking code preserved');
+check(fixture.querySelectorAll('.katex').length === 1, 'Math outside code rendered');
+check(fixture.querySelector('.rich-inline-code').textContent === 'x < 3', 'Inline code is literal');
+QuizContent.render(fixture, '$\\invalidcommand{x}$');
+check(fixture.querySelector('.math-fallback')?.textContent === '$\\invalidcommand{x}$', 'Invalid math remains readable');
+QuizContent.render(fixture, '$$\\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}$$');
+check(fixture.querySelector('.katex') && !fixture.querySelector('.math-fallback'), 'Matrix renders');
+const katexLibrary = window.katex; window.katex = null;
+QuizContent.render(fixture, '$x^2$');
+check(fixture.textContent === '$x^2$', 'Missing math library preserves source'); window.katex = katexLibrary;
+const parser = new MCQParser();
+const questions = parser.parse('1. Calculate $x^{2}$\nA) $2*3$\nB) $6$\nAnswer: B\nExplanation: $$x^{2}$$');
+check(questions[0].code === null, 'Math braces are not misclassified as code');
+check(questions[0].options[0].text === '$2*3$' && questions[0].correctAnswer === 'B', 'Multiplication preserved without marking answer');
+const coding = parser.parse('1. Read this\n```cpp\n  int x;\n\n  // A) literal option\n```\nA) One\nB) Two\nAnswer: B');
+check(coding.length === 1 && coding[0].question.includes('  int x;\n\n  // A)'), 'Parser preserves fenced code and blank lines');
+const codeOption = parser.parse('1. Pick code\nA) ```cpp\n  return 1;\n```\nB) none\nAnswer: A');
+check(codeOption[0].options[0].text.includes('\n  return 1;\n```'), 'Fenced option survives parsing');
+document.getElementById('results').textContent += `${passed} passed, ${failed} failed`;
+</script></html>
