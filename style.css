@@ -1176,3 +1176,67 @@ body {
         display: none;
     }
 }
+
+/* Consistent dark surfaces and containment for prose, code, and mathematics. */
+:root { color-scheme: dark; --text-muted: #9aaac1; --border-subtle: #273349; }
+html { background: #090d16; }
+body { overflow-x: visible; }
+button, input, textarea, select { color-scheme: dark; }
+button:focus-visible, [tabindex]:focus-visible, input:focus-visible, textarea:focus-visible {
+    outline: 3px solid #a5b4fc; outline-offset: 3px;
+}
+.view-section, .question-header, .quiz-card, .results-card,
+.option-btn, .option-text, .review-item, .review-q-title, .editor-options-box { min-width: 0; max-width: 100%; }
+.quiz-card { background: #111827; border: 1px solid #29364d; box-shadow: 0 16px 48px #0003; }
+.question-text { line-height: 1.65; font-weight: 600; scroll-margin-top: 100px; }
+.option-btn { align-items: flex-start; min-height: 52px; }
+.option-key, .option-status-icon { flex-shrink: 0; }
+.option-text { flex: 1; }
+.option-btn.option-dimmed { opacity: 0.75; }
+.rich-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+.rich-code-block { display: block; max-width: 100%; margin: 0.75rem 0; border: 1px solid #334155; border-radius: 10px; overflow: hidden; background: #080f1e; color: #e2e8f0; text-align: left; font-weight: 400; }
+.rich-code-label { display: block; padding: 0.45rem 0.85rem; border-bottom: 1px solid #273349; color: #a5b4fc; font: 600 0.75rem/1.5 var(--font-sans); }
+.rich-code-viewport { display: block; max-width: 100%; overflow-x: auto; padding: 0.85rem; white-space: pre; overflow-wrap: normal; tab-size: 4; font: 0.9rem/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.rich-code-viewport code { font: inherit; }
+.rich-inline-code { background: #202d43; color: #dbeafe; border-radius: 4px; padding: 0.1em 0.25em; font-size: 0.9em; }
+.rich-math { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; padding: 0.15em 0; white-space: normal; }
+.rich-math-display { display: block; margin: 0.6rem 0; }
+.katex-display { margin: 0.4em 0; }
+.katex-display > .katex { text-align: left; }
+.math-fallback { color: #fcd98b; white-space: pre-wrap; overflow-wrap: anywhere; }
+.explanation-box { scroll-margin-top: 100px; animation: none; }
+.explanation-header { text-transform: none; letter-spacing: 0; font-size: 1rem; }
+#backToQuestionBtn { align-self: flex-start; }
+.answer-feedback { color: #cbd5e1; font-size: 0.9rem; }
+.answer-feedback:not(:empty) { margin-bottom: 0.75rem; }
+.review-item > div:first-child { flex-wrap: wrap; gap: 0.5rem; }
+.review-code-block pre { max-width: 100%; overflow-x: auto; }
+.editor-input { min-width: 0; resize: vertical; min-height: 48px; }
+.editor-options-box input[type=radio] { flex-shrink: 0; width: 22px; height: 22px; accent-color: #818cf8; }
+.modal-dialog { min-width: 0; }
+.modal-body, .modal-header, .modal-footer { min-width: 0; }
+.modal-title { min-width: 0; }
+.btn, .q-nav-pill, .copy-code-btn { min-height: 44px; }
+.resume-quiz { align-self: center; margin: 1rem; }
+[hidden] { display: none !important; }
+.next-btn-pulse { animation-iteration-count: 2; }
+@media (max-width: 640px) {
+    .app-header { padding: 0.65rem 0.8rem; }
+    .header-container { gap: 0.5rem; }
+    .badge-tag, .keyboard-hints { display: none; }
+    .main-content { padding: 1rem 0.75rem 2rem; }
+    .quiz-card { padding: 1rem; border-radius: 14px; }
+    .question-header { margin-bottom: 1rem; }
+    .option-btn { padding: 0.75rem; gap: 0.65rem; }
+    .quiz-top-bar, .quiz-meta-info { flex-wrap: wrap; gap: 0.5rem; }
+    .quiz-controls { position: sticky; bottom: 0; z-index: 5; background: #111827; padding: 0.75rem 0 max(0.75rem, env(safe-area-inset-bottom)); gap: 0.5rem; margin-top: 1rem; }
+    .quiz-controls .btn { padding: 0.7rem; font-size: 0.85rem; }
+    .explanation-box { padding: 1rem; }
+    .modal-body, .modal-header, .modal-footer { padding: 1rem; }
+    .editor-input, .editor-textarea { font-size: 16px; }
+    .results-card { padding: 1.25rem; }
+    .toast { left: 1rem; right: 1rem; bottom: 6rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
